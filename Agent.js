@@ -1,6 +1,13 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
+import OpenAI from 'openai';
+
 dotenv.config();
+
+const openai = new OpenAI({
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  baseURL: 'https://api.deepseek.com',
+});
 
 const PRODUCTS = {
   kit_anason: { name: 'Anason Fermantasyon Kiti', price: 699, stok: 120, icerik: 'maya, anason aroması, ölçü kabı, tarif' },
@@ -69,8 +76,19 @@ Full set (kit+bidon) 1299TL en çok tercih edilen. Hangisini hazırlayayım?`;
   } else if (lower.includes('kargo')) {
     reply = `Aras Kargo 89TL, yarın kargoda. İstanbul içi ertesi gün, diğer iller 1-2 gün. Adresini atarsan hemen oluşturayım?`;
   } else {
-    // Burada OpenAI API ile cevap üretilecek
-    reply = `Anladım ustam, hangisi olsun? 1-Anason 2-Meşe yazman yeterli, adresi alıp hemen kargoya vereyim. ${isNightMode() ? 'Gece siparişleri sabah ilk kargoda çıkıyor 🌙' : ''}`;
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: getSystemPrompt() },
+          { role: 'user', content: text }
+        ],
+      });
+      reply = completion.choices[0].message.content;
+    } catch (error) {
+      console.error('DeepSeek API Hatası:', error);
+      reply = `Anladım ustam, hangisi olsun? 1-Anason 2-Meşe yazman yeterli, adresi alıp hemen kargoya vereyim. ${isNightMode() ? 'Gece siparişleri sabah ilk kargoda çıkıyor 🌙' : ''}`;
+    }
   }
 
   await sendWhatsApp(from, reply);
